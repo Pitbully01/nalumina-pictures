@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const s3 = new S3Client({
@@ -32,4 +32,33 @@ export async function getGetUrl(key: string) {
     }),
     { expiresIn: 60 }
   );
+}
+
+
+export async function getObjectBuffer(key: string) {
+  const res = await s3.send(new GetObjectCommand({
+    Bucket: process.env.S3_BUCKET!,
+    Key: key,
+  }));
+  const chunks: Uint8Array[] = [];
+  // @ts-ignore - Node stream
+  for await (const chunk of res.Body) chunks.push(chunk as Uint8Array);
+  return Buffer.concat(chunks);
+}
+
+export async function putObjectBuffer(key: string, body: Buffer, contentType: string) {
+  await s3.send(new PutObjectCommand({
+    Bucket: process.env.S3_BUCKET!,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  }));
+}
+
+export async function deleteKeys(keys: string[]) {
+  if(!keys.length) return;
+  await s3.send(new DeleteObjectsCommand({
+    Bucket: process.env.S3_BUCKET!,
+    Delete: { Objects: keys.map(Key => ({ Key })) },
+  }));
 }
