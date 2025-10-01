@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Visibility {
+  PRIVATE
+  LINK
+  PIN
+}
+
+enum ReactionKind {
+  LIKE
+  REJECT
+  STAR
+}
+
+enum Role {
+  PHOTOGRAPHER
+  CLIENT
+}
+
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(PHOTOGRAPHER)
+  galleries Gallery[]
+  comments  Comment[]
+  createdAt DateTime @default(now())
+}
+
+model Gallery {
+  id           String    @id @default(cuid())
+  ownerId      String
+  owner        User      @relation(fields: [ownerId], references: [id])
+  title        String
+  description  String?
+  visibility   Visibility @default(PRIVATE)
+  pinHash      String?
+  shareExpires DateTime?
+  images       Image[]
+  invitedEmail String?
+  createdAt    DateTime  @default(now())
+}
+
+model Image {
+  id          String   @id @default(cuid())
+  galleryId   String
+  gallery     Gallery  @relation(fields: [galleryId], references: [id])
+  keyOriginal String
+  keyLarge    String
+  keyThumb    String
+  width       Int
+  height      Int
+  exifJson    Json?
+  comments    Comment[]
+  reactions   Reaction[]
+  createdAt   DateTime @default(now())
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  imageId    String
+  image      Image    @relation(fields: [imageId], references: [id])
+  authorId   String?
+  author     User?    @relation(fields: [authorId], references: [id])
+  authorName String?
+  body       String
+  createdAt  DateTime @default(now())
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  imageId   String
+  image     Image    @relation(fields: [imageId], references: [id])
+  kind      ReactionKind
+  byEmail   String?
+  byUserId  String?
+  createdAt DateTime @default(now())
+}
