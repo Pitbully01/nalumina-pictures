@@ -1,34 +1,59 @@
 import { prisma } from "@/lib/prisma";
-import { getGetUrl } from "@/lib/s3";
+import { getGetUrl, deleteKeys } from "@/lib/s3";
 
+// ===== IMAGE BY ID OPERATIONS =====
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const img = await prisma.image.findUnique({ where: { id } });
-  if (!img) return new Response("Not found", { status: 404 });
+  
+  const image = await prisma.image.findUnique({ 
+    where: { id } 
+  });
+  
+  if (!image) {
+    return new Response("Not found", { status: 404 });
+  }
 
-  // Falls vorhanden: Thumb, sonst Large, sonst Original
-  const key = img.keyThumb || img.keyLarge || img.keyOriginal;
-  const url = await getGetUrl(key);
+  const previewKey = image.keyThumb || image.keyLarge || image.keyOriginal;
+  const fullKey = image.keyLarge || image.keyOriginal;
 
-  return Response.json({ ...img, url });
+  const [previewUrl, fullUrl] = await Promise.all([
+    getGetUrl(previewKey),
+    getGetUrl(fullKey),
+  ]);
+
+  return Response.json({ 
+    ...image, 
+    url: previewUrl, 
+    fullUrl 
+  });
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-    const { id } = await ctx.params;
+  const { id } = await ctx.params;
 
-    const img = await prisma.image.findUnique({ where: { id }});
-    if (!img) return new Response ("Not found", {status: 404});
+  const image = await prisma.image.findUnique({ 
+    where: { id } 
+  });
+  
+  if (!image) {
+    return new Response("Not found", { status: 404 });
+  }
 
-    const keys = [img.keyOriginal, img.keyLarge, img.keyThumb].filter(Boolean) as string[];
+  // Collect all S3 keys for deletion
+  const keys = [image.keyOriginal, image.keyLarge, image.keyThumb]
+    .filter(Boolean) as string[];
 
-    try {
-      const { deleteKeys } = await import('@/lib/s3');
-      await deleteKeys(keys);
-    } catch (e) {
-      console.error("Error deleting from S3:", e);
-    }
+  // Delete files from S3
+  try {
+    await deleteKeys(keys);
+  } catch (error) {
+    console.error("Error deleting from S3:", error);
+  }
 
-    await prisma.image.delete({ where: { id }});
+  // Delete image from database
+  await prisma.image.delete({ 
+    where: { id } 
+  });
 
-    return new Response(null, { status: 204 });
+  return new Response(null, { status: 204 });
 }

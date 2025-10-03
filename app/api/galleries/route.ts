@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 
+// ===== GALLERY OPERATIONS =====
 export async function GET() {
   const galleries = await prisma.gallery.findMany({
     orderBy: { createdAt: "desc" },
   });
+  
   return Response.json(galleries);
 }
 
@@ -14,7 +16,10 @@ export async function POST(req: Request) {
   const user = await prisma.user.upsert({
     where: { email: "owner@example.com" },
     update: {},
-    create: { email: "owner@example.com", name: "Owner" },
+    create: { 
+      email: "owner@example.com", 
+      name: "Owner" 
+    },
   });
 
   const gallery = await prisma.gallery.create({

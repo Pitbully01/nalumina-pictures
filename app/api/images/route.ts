@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/prisma";
 
+// ===== IMAGE OPERATIONS =====
 export async function POST(req: Request) {
   const { galleryId, key } = await req.json();
-  if (!galleryId || !key) return new Response("Missing fields", { status: 400 });
+  
+  if (!galleryId || !key) {
+    return new Response("Missing fields", { status: 400 });
+  }
 
-  const img = await prisma.image.create({
+  const image = await prisma.image.create({
     data: {
       galleryId,
       keyOriginal: key,
@@ -15,5 +19,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return Response.json(img, { status: 201 });
+  return Response.json(image, { status: 201 });
 }

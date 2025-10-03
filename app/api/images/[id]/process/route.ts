@@ -1,35 +1,56 @@
-import { prisma } from "@/lib/prisma";
 import sharp from "sharp";
+import { prisma } from "@/lib/prisma";
 import { getObjectBuffer, putObjectBuffer } from "@/lib/s3";
 
+// ===== IMAGE PROCESSING =====
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const img = await prisma.image.findUnique({ where: { id } });
-  if (!img) return new Response("Not found", { status: 404 });
+  
+  const image = await prisma.image.findUnique({ 
+    where: { id } 
+  });
+  
+  if (!image) {
+    return new Response("Not found", { status: 404 });
+  }
 
-  const orig = await getObjectBuffer(img.keyOriginal);
+  // Get original image from S3
+  const originalBuffer = await getObjectBuffer(image.keyOriginal);
 
-  const meta = await sharp(orig).metadata();
-  const large = await sharp(orig).resize({ width: 2048, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
-  const thumb = await sharp(orig).resize({ width: 400, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+  // Get image metadata
+  const metadata = await sharp(originalBuffer).metadata();
+  
+  // Generate large and thumbnail versions
+  const largeBuffer = await sharp(originalBuffer)
+    .resize({ width: 2048, withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+    
+  const thumbBuffer = await sharp(originalBuffer)
+    .resize({ width: 800, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer();
 
-  const keyLarge = `${img.keyOriginal}.lg.webp`;
-  const keyThumb = `${img.keyOriginal}.th.webp`;
+  // Generate S3 keys for processed images
+  const keyLarge = `${image.keyOriginal}.lg.webp`;
+  const keyThumb = `${image.keyOriginal}.th.webp`;
 
+  // Upload processed images to S3
   await Promise.all([
-    putObjectBuffer(keyLarge, large, "image/webp"),
-    putObjectBuffer(keyThumb, thumb, "image/webp"),
+    putObjectBuffer(keyLarge, largeBuffer, "image/webp"),
+    putObjectBuffer(keyThumb, thumbBuffer, "image/webp"),
   ]);
 
-  const updated = await prisma.image.update({
+  // Update database with processed image keys and metadata
+  const updatedImage = await prisma.image.update({
     where: { id },
     data: {
       keyLarge,
       keyThumb,
-      width: meta.width ?? 0,
-      height: meta.height ?? 0,
+      width: metadata.width ?? 0,
+      height: metadata.height ?? 0,
     },
   });
 
-  return Response.json(updated);
+  return Response.json(updatedImage);
 }
