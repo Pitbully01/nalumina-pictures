@@ -1,19 +1,21 @@
 import { prisma } from "@/lib/prisma";
 
-// ===== IMAGE OPERATIONS =====
+// === POST - Create new image record ===
 export async function POST(req: Request) {
   const { galleryId, key } = await req.json();
-  
+
+  // Validate required fields
   if (!galleryId || !key) {
     return new Response("Missing fields", { status: 400 });
   }
 
+  // Create image record
   const image = await prisma.image.create({
     data: {
       galleryId,
       keyOriginal: key,
-      keyLarge: key,  // vorerst gleich; Thumbs kommen später
-      keyThumb: key,  // vorerst gleich
+      keyLarge: key,    // Initially same; thumbs will be generated later
+      keyThumb: key,    // Initially same; thumbs will be generated later
       width: 0,
       height: 0,
     },

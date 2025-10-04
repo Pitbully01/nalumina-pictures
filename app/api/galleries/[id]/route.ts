@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { deleteKeys } from "@/lib/s3";
 
-// ===== GALLERY BY ID OPERATIONS =====
-export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+// === DELETE - Remove gallery and all associated data ===
+export async function DELETE(
+  _req: Request, 
+  ctx: { params: Promise<{ id: string }> }
+) {
   const { id } = await ctx.params;
 
   // Get all images in the gallery

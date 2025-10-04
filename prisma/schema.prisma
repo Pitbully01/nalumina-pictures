@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -5,6 +7,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PHOTOGRAPHER
+  CLIENT
 }
 
 enum Visibility {
@@ -15,73 +23,109 @@ enum Visibility {
 
 enum ReactionKind {
   LIKE
-  REJECT
-  STAR
+  DISLIKE
 }
 
-enum Role {
-  PHOTOGRAPHER
-  CLIENT
+enum ColorLabel {
+  RED
+  YELLOW
+  GREEN
+  BLUE
+  PURPLE
 }
-
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String?
-  role         Role     @default(PHOTOGRAPHER)
+  role         Role      @default(PHOTOGRAPHER)
   passwordHash String?
   galleries    Gallery[]
   comments     Comment[]
-  createdAt    DateTime @default(now())
-}
-
-model Gallery {
-  id           String    @id @default(cuid())
-  ownerId      String
-  owner        User      @relation(fields: [ownerId], references: [id])
-  title        String
-  description  String?
-  visibility   Visibility @default(PRIVATE)
-  pinHash      String?
-  shareExpires DateTime?
-  images       Image[]
-  invitedEmail String?
+  reactions    Reaction[]
   createdAt    DateTime  @default(now())
 }
 
+model Gallery {
+  id           String     @id @default(cuid())
+  ownerId      String
+  owner        User       @relation(fields: [ownerId], references: [id])
+
+  title        String
+  description  String?
+
+  // Sichtbarkeit / Slug / Cover
+  slug         String     @unique @default(cuid())
+  isPublic     Boolean    @default(false)
+  coverKey     String?
+
+  // Anzeige-Einstellungen
+  showIndexOverlay Boolean  @default(false)
+
+  // Untergalerien (Self-Relation)
+  parentId     String?
+  parent       Gallery?   @relation("GalleryToChildren", fields: [parentId], references: [id])
+  children     Gallery[]  @relation("GalleryToChildren")
+
+  images       Image[]
+  redirects    SlugRedirect[]
+
+  invitedEmail String?
+  visibility   Visibility @default(LINK)
+  pinHash      String?
+  shareExpires DateTime?
+
+  createdAt    DateTime   @default(now())
+}
+
+model SlugRedirect {
+  id        String   @id @default(cuid())
+  oldSlug   String   @unique
+  galleryId String
+  gallery   Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
 model Image {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   galleryId   String
-  gallery     Gallery  @relation(fields: [galleryId], references: [id])
+  gallery     Gallery     @relation(fields: [galleryId], references: [id])
+
   keyOriginal String
-  keyLarge    String
-  keyThumb    String
+  keyLarge    String?
+  keyThumb    String?
+
   width       Int
   height      Int
-  exifJson    Json?
+
+  // Zusatz
+  imageIndex  Int?
+  colorLabel  ColorLabel?
+
+  createdAt   DateTime    @default(now())
+
   comments    Comment[]
   reactions   Reaction[]
-  createdAt   DateTime @default(now())
 }
 
 model Comment {
-  id         String   @id @default(cuid())
-  imageId    String
-  image      Image    @relation(fields: [imageId], references: [id])
-  authorId   String?
-  author     User?    @relation(fields: [authorId], references: [id])
-  authorName String?
-  body       String
-  createdAt  DateTime @default(now())
-}
-
-model Reaction {
   id        String   @id @default(cuid())
   imageId   String
   image     Image    @relation(fields: [imageId], references: [id])
-  kind      ReactionKind
-  byEmail   String?
-  byUserId  String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  text      String
   createdAt DateTime @default(now())
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  imageId   String
+  image     Image        @relation(fields: [imageId], references: [id])
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  kind      ReactionKind
+  createdAt DateTime     @default(now())
+
+  @@unique([imageId, userId])
 }

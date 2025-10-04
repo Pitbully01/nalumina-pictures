@@ -29,6 +29,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="de" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
+        <nav className="p-4 border-b flex gap-4">
+          <a href="/">Home</a>
+          <a href="/galleries">Meine Galerien</a>
+        </nav>
         <Providers>
           {children}
         </Providers>
